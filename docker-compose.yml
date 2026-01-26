@@ -1,0 +1,13 @@
+services:
+  cs2demoviewer:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - demo-data:/app/demos
+    environment:
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env or environment}
+    restart: unless-stopped
+
+volumes:
+  demo-data:

@@ -1,0 +1,21 @@
+node_modules/
+dist/
+
+# Demo files
+demos/*.dem
+
+# Environment
+.env
+
+# Logs
+*.log
+
+# OS artifacts
+nul
+.DS_Store
+Thumbs.db
+
+# IDE / tools
+.vscode/
+.idea/
+.claude/
