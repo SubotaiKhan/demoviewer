@@ -1,13 +1,22 @@
 services:
   cs2demoviewer:
     build: .
-    ports:
-      - "3001:3001"
+    container_name: cs2demoviewer
+    expose:
+      - "3001"
     volumes:
       - demo-data:/app/demos
     environment:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env or environment}
+      - VIRTUAL_HOST=cs2demoviewer.malte-andersen.dk
+      - LETSENCRYPT_HOST=cs2demoviewer.malte-andersen.dk
     restart: unless-stopped
+    networks:
+      - cs2demoviewer-network
 
 volumes:
   demo-data:
+
+networks:
+  cs2demoviewer-network:
+    name: cs2demoviewer-network

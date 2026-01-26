@@ -1,0 +1,25 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/cs2demoviewer
+            git pull origin master
+            echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" > .env
+            docker compose up -d --build
+
+            # Update shared nginx config and reload
+            cp nginx/cs2demoviewer.conf /opt/reverse-proxy/nginx/conf.d/cs2demoviewer.conf
+            docker exec shared-nginx nginx -s reload
