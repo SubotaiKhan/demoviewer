@@ -53,11 +53,6 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
         return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
     };
 
-    const formatTime = (dateStr: string) => {
-        const d = new Date(dateStr);
-        return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-    };
-
     return (
         <div className="bg-cs2-panel p-4 rounded-lg shadow-lg">
             <h2 className="text-xl font-bold mb-4 text-cs2-accent">Available Demos</h2>
