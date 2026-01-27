@@ -142,11 +142,22 @@ app.get('/api/demos', (req, res) => {
     }
 });
 
+// Determine if teams have swapped sides for a given round number.
+// CS2: MR12 regulation (swap after round 12), MR3 overtime (swap every 3 rounds).
+function areSidesSwapped(roundNumber) {
+    if (roundNumber <= 12) return false;  // First half
+    if (roundNumber <= 24) return true;   // Second half
+    // Overtime: alternates every 3 rounds
+    const otRound = roundNumber - 24;
+    const otHalf = Math.ceil(otRound / 3);
+    return otHalf % 2 === 0;
+}
+
 function calculateMatchStats(events) {
     const players = {};
     const teams = {
-        2: { name: 'T', score: 0 }, 
-        3: { name: 'CT', score: 0 } 
+        2: { name: 'T', score: 0 },
+        3: { name: 'CT', score: 0 }
     };
     let validRounds = 0;
     const rounds = []; // To store round history
@@ -199,8 +210,13 @@ function calculateMatchStats(events) {
             else if (e.winner === 'CT' || e.winner == 3) winnerTeam = 3;
 
             if (winnerTeam) {
-                teams[winnerTeam].score++;
                 validRounds++;
+                // winnerTeam is the side that won (2=T, 3=CT). After side switches,
+                // the team occupying that side is the one that originally started on
+                // the opposite side, so we credit the score to the original team.
+                const swapped = areSidesSwapped(validRounds);
+                const scoreTeam = swapped ? (winnerTeam === 2 ? 3 : 2) : winnerTeam;
+                teams[scoreTeam].score++;
                 
                 rounds.push({
                     round: validRounds, // Sequential round number
