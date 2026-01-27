@@ -117,6 +117,38 @@ app.get('/api/maps/:mapName', (req, res) => {
     }
 });
 
+// Cache parsed demo summaries to avoid re-parsing on every list request.
+const demoSummaryCache = new Map();
+
+function getDemoSummary(filePath) {
+    const fileStats = fs.statSync(filePath);
+    const cached = demoSummaryCache.get(filePath);
+
+    if (cached && cached.size === fileStats.size) {
+        return cached.summary;
+    }
+
+    try {
+        const header = parseHeader(filePath);
+        const events = parseEvents(filePath, ['round_end', 'player_team', 'round_freeze_end']);
+        const matchStats = calculateMatchStats(events);
+
+        const summary = {
+            map: header.map_name,
+            duration: header.playback_time,
+            score: matchStats.score,
+            totalRounds: matchStats.totalRounds,
+            players: matchStats.players.map(p => ({ name: p.name, team: p.team }))
+        };
+
+        demoSummaryCache.set(filePath, { size: fileStats.size, summary });
+        return summary;
+    } catch (error) {
+        console.error(`Error parsing demo summary for ${filePath}:`, error.message);
+        return null;
+    }
+}
+
 // List all demos
 app.get('/api/demos', (req, res) => {
     try {
@@ -124,17 +156,19 @@ app.get('/api/demos', (req, res) => {
             return res.status(404).json({ error: 'Demos directory not found' });
         }
         const files = fs.readdirSync(DEMOS_DIR).filter(file => file.endsWith('.dem'));
-        
+
         const demoList = files.map(file => {
             const filePath = getDemoPath(file);
             const stats = fs.statSync(filePath);
+            const summary = getDemoSummary(filePath);
             return {
                 name: file,
                 size: stats.size,
-                created: stats.birthtime
+                created: stats.birthtime,
+                ...summary
             };
         });
-        
+
         res.json(demoList);
     } catch (error) {
         console.error('Error listing demos:', error);
