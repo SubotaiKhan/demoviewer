@@ -18,7 +18,8 @@ jobs:
             cd /opt/cs2demoviewer
             git pull origin master
             echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" > .env
-            docker compose up -d --build
+            docker compose build --no-cache
+            docker compose up -d --force-recreate
 
             # Update shared nginx config and reload
             cp nginx/cs2demoviewer.conf /opt/reverse-proxy/nginx/conf.d/cs2demoviewer.conf
