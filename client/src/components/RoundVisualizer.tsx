@@ -492,6 +492,41 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
                 ctx.fill();
             }
 
+            // Tracer
+            const TRACER_DURATION = 12; // ticks (~0.19s at 64 tick)
+            const recentShot = shots
+                .filter(s => s.steamid === pLower.steamid && s.tick <= currentTick && s.tick >= currentTick - TRACER_DURATION)
+                .sort((a, b) => b.tick - a.tick)[0];
+
+            if (recentShot) {
+                const age = currentTick - recentShot.tick;
+                const tracerAlpha = Math.max(0, 1 - age / TRACER_DURATION);
+                const tracerLen = 80;
+
+                // Use yaw at the time of the shot for accuracy
+                const shotPlayers = positions[recentShot.tick];
+                const shotPlayer = shotPlayers?.find((p: PlayerPos) => p.steamid === pLower.steamid);
+                const shotRad = shotPlayer ? -(shotPlayer.yaw * Math.PI) / 180 : -rad;
+
+                const dx = Math.cos(shotRad);
+                const dy = Math.sin(shotRad);
+
+                ctx.shadowBlur = 0;
+                const gradient = ctx.createLinearGradient(
+                    cx + dx * 10, cy + dy * 10,
+                    cx + dx * tracerLen, cy + dy * tracerLen
+                );
+                gradient.addColorStop(0, `rgba(255, 255, 150, ${tracerAlpha * 0.7})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 150, 0)');
+
+                ctx.beginPath();
+                ctx.moveTo(cx + dx * 10, cy + dy * 10);
+                ctx.lineTo(cx + dx * tracerLen, cy + dy * tracerLen);
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+
             // Draw Player Circle
             ctx.shadowBlur = 10;
             ctx.shadowColor = shadowColor;
