@@ -365,7 +365,7 @@ app.get('/api/demos/:filename/positions', (req, res) => {
 
         const positions = parseTicks(filePath, [
             "X", "Y", "Z", 
-            "m_angEyeAngles[1]", // Yaw
+            "yaw",
             "team_num",
             "health",
             "armor",
@@ -493,7 +493,7 @@ app.get('/api/demos/:filename/positions', (req, res) => {
                 steamid: pos.steamid,
                 name: pos.name,
                 team: pos.team_num,
-                yaw: pos.yaw || pos['m_angEyeAngles[1]'],
+                yaw: pos.yaw ?? 0,
                 x: pos.X,
                 y: pos.Y,
                 z: pos.Z,
