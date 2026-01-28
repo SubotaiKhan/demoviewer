@@ -373,10 +373,12 @@ app.get('/api/demos/:filename', (req, res) => {
         const header = parseHeader(filePath);
         const events = parseEvents(filePath, ['player_death', 'round_end', 'player_team', 'player_hurt', 'round_freeze_end']);
         const stats = calculateMatchStats(events);
+        const teams = getTeamClanNames(filePath);
 
         res.json({
             header,
-            matchStats: stats
+            matchStats: stats,
+            teams  // { ctTeam: "...", tTeam: "..." } or null
         });
     } catch (error) {
         console.error('Error parsing demo:', error);

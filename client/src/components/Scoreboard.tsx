@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import type { MatchData } from '../types';
 
 export const Scoreboard: React.FC<{ data: MatchData }> = ({ data }) => {
-    const { matchStats, header } = data;
+    const { matchStats, header, teams } = data;
     
     // Sort by kills (desc)
     const sortedPlayers = [...matchStats.players].sort((a, b) => b.kills - a.kills);
@@ -28,12 +28,16 @@ export const Scoreboard: React.FC<{ data: MatchData }> = ({ data }) => {
                 <div className="flex items-center space-x-8">
                     <div className="flex flex-col items-center">
                         <span className="text-cs2-ct font-bold text-4xl">{matchStats.score.ct}</span>
-                        <span className="text-cs2-ct text-xs tracking-widest uppercase font-bold">CT</span>
+                        <span className="text-cs2-ct text-xs tracking-widest uppercase font-bold truncate max-w-[120px]">
+                            {teams?.ctTeam || 'CT'}
+                        </span>
                     </div>
                     <div className="text-gray-600 text-2xl font-light">-</div>
                     <div className="flex flex-col items-center">
                         <span className="text-cs2-t font-bold text-4xl">{matchStats.score.t}</span>
-                        <span className="text-cs2-t text-xs tracking-widest uppercase font-bold">TERRORIST</span>
+                        <span className="text-cs2-t text-xs tracking-widest uppercase font-bold truncate max-w-[120px]">
+                            {teams?.tTeam || 'T'}
+                        </span>
                     </div>
                 </div>
 

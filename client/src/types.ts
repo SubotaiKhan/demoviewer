@@ -30,9 +30,15 @@ export interface RoundInfo {
     endTick: number;
 }
 
+export interface TeamNames {
+    ctTeam: string;
+    tTeam: string;
+}
+
 export interface MatchData {
     header: any;
     matchStats: MatchStats;
+    teams: TeamNames | null;
 }
 
 export interface PlayerPos {

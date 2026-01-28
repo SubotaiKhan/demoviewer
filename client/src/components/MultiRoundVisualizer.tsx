@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { getMapDetails, getPositions } from '../api';
-import type { PlayerPos } from '../types';
+import type { PlayerPos, TeamNames } from '../types';
 
 interface MultiRoundVisualizerProps {
     filename: string;
     mapName: string;
     rounds: any[];
     players: any[];
+    teams?: TeamNames | null;
     onClose: () => void;
 }
 
-export const MultiRoundVisualizer = ({ filename, mapName, rounds, players, onClose }: MultiRoundVisualizerProps) => {
+export const MultiRoundVisualizer = ({ filename, mapName, rounds, players, teams, onClose }: MultiRoundVisualizerProps) => {
     // State
     const [selectedRoundIds, setSelectedRoundIds] = useState<Set<number>>(new Set());
     const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
@@ -273,13 +274,15 @@ export const MultiRoundVisualizer = ({ filename, mapName, rounds, players, onClo
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
                     {rounds.map(r => (
-                        <div 
-                            key={r.round} 
+                        <div
+                            key={r.round}
                             onClick={() => toggleRound(r.round)}
                             className={`p-2 rounded cursor-pointer text-sm flex justify-between items-center ${selectedRoundIds.has(r.round) ? 'bg-cs2-accent text-white' : 'hover:bg-white/5 text-gray-400'}`}
                         >
                             <span>Round {r.round}</span>
-                            <span className="text-xs opacity-50">{r.winner === 2 ? 'T' : 'CT'}</span>
+                            <span className={`text-xs opacity-70 ${r.winner === 2 ? 'text-yellow-500' : 'text-blue-400'}`}>
+                                {r.winner === 2 ? (teams?.tTeam || 'T') : (teams?.ctTeam || 'CT')}
+                            </span>
                         </div>
                     ))}
                 </div>

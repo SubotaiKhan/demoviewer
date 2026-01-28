@@ -122,9 +122,10 @@ function App() {
                             </div>
 
                             {matchData.matchStats.rounds && (
-                                <RoundHistory 
-                                    rounds={matchData.matchStats.rounds} 
+                                <RoundHistory
+                                    rounds={matchData.matchStats.rounds}
                                     onViewRound={handleViewRound}
+                                    teams={matchData.teams}
                                 />
                             )}
                         </>
@@ -144,17 +145,19 @@ function App() {
                     round={selectedRound}
                     rounds={matchData?.matchStats?.rounds}
                     mapName={matchData?.header?.map_name}
+                    teams={matchData?.teams}
                     onClose={() => setSelectedRound(null)}
                     onChangeRound={handleViewRound}
                 />
             )}
 
             {showAnalysis && selectedDemo && matchData && (
-                <MultiRoundVisualizer 
+                <MultiRoundVisualizer
                     filename={selectedDemo}
                     mapName={matchData.header.map_name}
                     rounds={matchData.matchStats.rounds}
                     players={matchData.matchStats.players}
+                    teams={matchData.teams}
                     onClose={() => setShowAnalysis(false)}
                 />
             )}

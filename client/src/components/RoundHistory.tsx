@@ -1,11 +1,18 @@
 import React from 'react';
 import clsx from 'clsx';
+import type { TeamNames } from '../types';
 
 interface Round {
     round: number;
     winner: number; // 2=T, 3=CT
     reason: string;
     tick: number;
+}
+
+interface Props {
+    rounds: Round[];
+    onViewRound: (round: Round) => void;
+    teams?: TeamNames | null;
 }
 
 const REASON_MAP: Record<string, string> = {
@@ -18,7 +25,7 @@ const REASON_MAP: Record<string, string> = {
     't_surrender': 'T Surrender'
 };
 
-export const RoundHistory: React.FC<{ rounds: Round[], onViewRound: (round: Round) => void }> = ({ rounds, onViewRound }) => {
+export const RoundHistory: React.FC<Props> = ({ rounds, onViewRound, teams }) => {
     return (
         <div className="bg-cs2-panel p-6 rounded-lg shadow-lg mt-4">
             <h3 className="text-xl font-bold text-white mb-4">Round History</h3>
@@ -35,10 +42,10 @@ export const RoundHistory: React.FC<{ rounds: Round[], onViewRound: (round: Roun
                                 <span className="font-mono text-gray-500 font-bold">#{round.round}</span>
                                 <div className="flex flex-col">
                                     <span className={clsx(
-                                        "font-bold text-sm uppercase",
+                                        "font-bold text-sm",
                                         isCT ? "text-cs2-ct" : "text-cs2-t"
                                     )}>
-                                        {isCT ? 'CT Win' : 'T Win'}
+                                        {isCT ? (teams?.ctTeam || 'CT') : (teams?.tTeam || 'T')}
                                     </span>
                                     <span className="text-[10px] text-gray-500 font-medium uppercase">
                                         {REASON_MAP[round.reason] || round.reason}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getPositions, getMapDetails } from '../api';
-import type { PlayerPos } from '../types';
+import type { PlayerPos, TeamNames } from '../types';
 
 interface KillEvent {
     tick: number;
@@ -59,11 +59,12 @@ interface RoundVisualizerProps {
     round: Round;
     rounds?: Round[];
     mapName?: string;
+    teams?: TeamNames | null;
     onClose: () => void;
     onChangeRound?: (round: Round) => void;
 }
 
-export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, round, rounds, mapName, onClose, onChangeRound }) => {
+export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, round, rounds, mapName, teams, onClose, onChangeRound }) => {
     // Navigation helpers
     const currentIndex = rounds?.findIndex(r => r.round === round.round) ?? -1;
     const hasPrevious = currentIndex > 0;
@@ -1047,8 +1048,8 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
                         {/* CT Team */}
                         <div>
                             <div className="text-xs text-blue-400 font-bold uppercase tracking-wider mb-2 flex justify-between">
-                                <span>Counter-Terrorists</span>
-                                <span>{ctPlayers.filter(p => (p.health || 0) > 0).length} Alive</span>
+                                <span className="truncate mr-2">{teams?.ctTeam || 'Counter-Terrorists'}</span>
+                                <span className="shrink-0">{ctPlayers.filter(p => (p.health || 0) > 0).length} Alive</span>
                             </div>
                             <div className="space-y-1">
                                 {ctPlayers.map(p => <PlayerCard key={p.steamid} p={p} />)}
@@ -1058,8 +1059,8 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
                         {/* T Team */}
                         <div>
                             <div className="text-xs text-yellow-500 font-bold uppercase tracking-wider mb-2 flex justify-between">
-                                <span>Terrorists</span>
-                                <span>{tPlayers.filter(p => (p.health || 0) > 0).length} Alive</span>
+                                <span className="truncate mr-2">{teams?.tTeam || 'Terrorists'}</span>
+                                <span className="shrink-0">{tPlayers.filter(p => (p.health || 0) > 0).length} Alive</span>
                             </div>
                             <div className="space-y-1">
                                 {tPlayers.map(p => <PlayerCard key={p.steamid} p={p} />)}
