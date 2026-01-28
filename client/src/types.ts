@@ -47,4 +47,7 @@ export interface PlayerPos {
     armor?: number;
     has_helmet?: boolean;
     has_defuser?: boolean;
+    flash_duration?: number; // Remaining flash duration in seconds
+    active_weapon_name?: string; // Currently equipped weapon
+    inventory?: string[]; // Full loadout (weapons and utility)
 }

@@ -48,18 +48,53 @@ interface MapConfig {
     imageUrl: string;
 }
 
-interface RoundVisualizerProps {
-    filename: string;
-    round: {
-        round: number;
-        startTick: number;
-        endTick: number;
-    };
-    mapName?: string;
-    onClose: () => void;
+interface Round {
+    round: number;
+    startTick: number;
+    endTick: number;
 }
 
-export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, round, mapName, onClose }) => {
+interface RoundVisualizerProps {
+    filename: string;
+    round: Round;
+    rounds?: Round[];
+    mapName?: string;
+    onClose: () => void;
+    onChangeRound?: (round: Round) => void;
+}
+
+export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, round, rounds, mapName, onClose, onChangeRound }) => {
+    // Navigation helpers
+    const currentIndex = rounds?.findIndex(r => r.round === round.round) ?? -1;
+    const hasPrevious = currentIndex > 0;
+    const hasNext = rounds && currentIndex < rounds.length - 1;
+
+    const goToPrevious = () => {
+        if (hasPrevious && rounds && onChangeRound) {
+            onChangeRound(rounds[currentIndex - 1]);
+        }
+    };
+
+    const goToNext = () => {
+        if (hasNext && rounds && onChangeRound) {
+            onChangeRound(rounds[currentIndex + 1]);
+        }
+    };
+
+    // Keyboard navigation for rounds
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft' || e.key === '[') {
+                goToPrevious();
+            } else if (e.key === 'ArrowRight' || e.key === ']') {
+                goToNext();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [currentIndex, rounds, onChangeRound]);
+
     const containerRef = useRef<HTMLDivElement>(null);
     const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
     const [positions, setPositions] = useState<Record<number, PlayerPos[]>>({});
@@ -445,11 +480,17 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
 
             // Check if shooting (within last 5 ticks roughly, or 0.1s)
             const currentTick = tickLower + lerpFactor;
-            const isShooting = shots.some(s => 
-                s.steamid === pLower.steamid && 
-                s.tick >= currentTick - 4 && 
+            const isShooting = shots.some(s =>
+                s.steamid === pLower.steamid &&
+                s.tick >= currentTick - 4 &&
                 s.tick <= currentTick + 1
             );
+
+            // Check if flashed (interpolate flash duration)
+            const flashLower = pLower.flash_duration || 0;
+            const flashUpper = pUpper.flash_duration || 0;
+            const curFlashDuration = flashLower + (flashUpper - flashLower) * lerpFactor;
+            const isFlashed = curFlashDuration > 0;
 
             // Draw View Cone (Flashlight style)
             const viewLen = 20;
@@ -533,13 +574,39 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
 
             ctx.beginPath();
             ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-            ctx.fillStyle = playerColor; 
+            ctx.fillStyle = playerColor;
             ctx.fill();
-            
+
             ctx.shadowBlur = 0;
             ctx.strokeStyle = 'white';
             ctx.lineWidth = 2;
             ctx.stroke();
+
+            // Flash indicator - white pulsing ring when player is blinded
+            if (isFlashed) {
+                // Intensity based on remaining duration (stronger flash = more intense)
+                const flashIntensity = Math.min(1, curFlashDuration / 2); // Full intensity for 2+ seconds
+
+                // Pulsing effect
+                const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 100);
+                const alpha = flashIntensity * (0.6 + 0.4 * pulse);
+
+                // Outer glow
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Inner white overlay on player
+                ctx.beginPath();
+                ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+                ctx.fill();
+            }
 
             ctx.fillStyle = 'white';
             ctx.font = 'bold 11px Inter, sans-serif';
@@ -604,41 +671,147 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
     const tPlayers = currentPlayersUI.filter(p => p.team === 2).sort((a,b) => a.name.localeCompare(b.name));
     const ctPlayers = currentPlayersUI.filter(p => p.team === 3).sort((a,b) => a.name.localeCompare(b.name));
 
-    const PlayerCard = ({ p }: { p: PlayerPos }) => (
-        <div className="flex items-center space-x-3 bg-white/5 p-2 rounded mb-1 text-xs border-l-2 border-transparent hover:bg-white/10 transition-colors" style={{ borderColor: p.team === 2 ? '#eab308' : '#60a5fa' }}>
-            {/* Name & Icons */}
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <div className="flex items-center space-x-2">
-                    <span className={`font-bold truncate max-w-[120px] ${p.health === 0 ? 'text-gray-500 line-through' : 'text-white'}`}>
-                        {p.name}
-                    </span>
-                    <div className="flex space-x-1 opacity-80">
-                        {p.has_defuser && <span className="text-blue-400 text-[10px]" title="Defuser">✂️</span>}
-                        {p.has_helmet && <span className="text-gray-300 text-[10px]" title="Helmet">🛡️</span>}
-                        {!p.has_helmet && p.armor && p.armor > 0 && <span className="text-gray-500 text-[10px]" title="Armor">🛡️</span>}
+    // Helper to get weapon display info
+    const getWeaponInfo = (weaponName: string): { icon: string; label: string; type: 'primary' | 'secondary' | 'melee' | 'utility' | 'bomb' } => {
+        const name = weaponName.replace('weapon_', '').toLowerCase();
+
+        // Utility/Grenades
+        if (name.includes('smokegrenade') || name === 'smokegrenade') return { icon: '💨', label: 'Smoke', type: 'utility' };
+        if (name.includes('flashbang') || name === 'flashbang') return { icon: '⚡', label: 'Flash', type: 'utility' };
+        if (name.includes('hegrenade') || name === 'hegrenade') return { icon: '💥', label: 'HE', type: 'utility' };
+        if (name.includes('molotov') || name === 'molotov') return { icon: '🔥', label: 'Molotov', type: 'utility' };
+        if (name.includes('incgrenade') || name === 'incgrenade') return { icon: '🔥', label: 'Inc', type: 'utility' };
+        if (name.includes('decoy') || name === 'decoy') return { icon: '🔈', label: 'Decoy', type: 'utility' };
+
+        // Bomb
+        if (name === 'c4') return { icon: '💣', label: 'C4', type: 'bomb' };
+
+        // Pistols
+        if (['glock', 'usp_silencer', 'hkp2000', 'p250', 'elite', 'fiveseven', 'tec9', 'cz75a', 'deagle', 'revolver'].includes(name)) {
+            return { icon: '🔫', label: name.toUpperCase(), type: 'secondary' };
+        }
+
+        // SMGs
+        if (['mac10', 'mp9', 'mp7', 'mp5sd', 'ump45', 'p90', 'bizon'].includes(name)) {
+            return { icon: '🔫', label: name.toUpperCase(), type: 'primary' };
+        }
+
+        // Rifles
+        if (['ak47', 'm4a1', 'm4a1_silencer', 'famas', 'galilar', 'aug', 'sg556', 'awp', 'ssg08', 'scar20', 'g3sg1'].includes(name)) {
+            return { icon: '🎯', label: name.toUpperCase().replace('_SILENCER', '-S'), type: 'primary' };
+        }
+
+        // Shotguns
+        if (['nova', 'xm1014', 'mag7', 'sawedoff'].includes(name)) {
+            return { icon: '💥', label: name.toUpperCase(), type: 'primary' };
+        }
+
+        // Machine guns
+        if (['negev', 'm249'].includes(name)) {
+            return { icon: '🔫', label: name.toUpperCase(), type: 'primary' };
+        }
+
+        // Knife
+        if (name.includes('knife') || name === 'bayonet') return { icon: '🔪', label: 'Knife', type: 'melee' };
+
+        // Zeus
+        if (name === 'taser') return { icon: '⚡', label: 'Zeus', type: 'secondary' };
+
+        return { icon: '❓', label: name, type: 'secondary' };
+    };
+
+    const PlayerCard = ({ p }: { p: PlayerPos }) => {
+        const isFlashed = p.flash_duration && p.flash_duration > 0;
+
+        // Parse inventory
+        const inventory = p.inventory || [];
+        const utilities = inventory.filter(w => {
+            const info = getWeaponInfo(w);
+            return info.type === 'utility';
+        });
+        const hasC4 = inventory.some(w => w.includes('c4'));
+
+        // Get active weapon info
+        const activeWeapon = p.active_weapon_name ? getWeaponInfo(p.active_weapon_name) : null;
+
+        return (
+        <div className={`p-2 rounded mb-1 text-xs border-l-2 border-transparent hover:bg-white/10 transition-colors ${isFlashed ? 'bg-white/20' : 'bg-white/5'}`} style={{ borderColor: p.team === 2 ? '#eab308' : '#60a5fa' }}>
+            {/* Top Row: Name, Status Icons, Health */}
+            <div className="flex items-center space-x-3">
+                {/* Name & Icons */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <div className="flex items-center space-x-2">
+                        <span className={`font-bold truncate max-w-[120px] ${p.health === 0 ? 'text-gray-500 line-through' : 'text-white'}`}>
+                            {p.name}
+                        </span>
+                        <div className="flex space-x-1 opacity-80">
+                            {isFlashed && <span className="text-yellow-300 text-[10px] animate-pulse" title={`Flashed (${p.flash_duration?.toFixed(1)}s)`}>⚡</span>}
+                            {p.has_defuser && <span className="text-blue-400 text-[10px]" title="Defuser">✂️</span>}
+                            {hasC4 && <span className="text-red-500 text-[10px]" title="Bomb">💣</span>}
+                            {p.has_helmet && <span className="text-gray-300 text-[10px]" title="Helmet">🛡️</span>}
+                            {!p.has_helmet && p.armor && p.armor > 0 && <span className="text-gray-500 text-[10px]" title="Armor (no helmet)">🛡️</span>}
+                        </div>
                     </div>
+                </div>
+
+                {/* Health & Armor */}
+                <div className="w-20 flex flex-col space-y-0.5">
+                    <div className="relative h-2.5 bg-gray-800 rounded-sm overflow-hidden">
+                        <div
+                            className={`h-full ${p.health && p.health < 20 ? 'bg-red-500' : 'bg-green-500'} transition-all duration-300`}
+                            style={{ width: `${p.health || 0}%` }}
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-mono text-white drop-shadow-md">
+                            {p.health || 0}
+                        </span>
+                    </div>
+                    {p.armor && p.armor > 0 ? (
+                        <div className="relative h-1.5 bg-gray-800 rounded-sm overflow-hidden">
+                            <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${p.armor}%` }} />
+                        </div>
+                    ) : null}
                 </div>
             </div>
 
-            {/* Health & Armor */}
-            <div className="w-24 flex flex-col space-y-1">
-                 {/* HP */}
-                <div className="relative h-3 bg-gray-800 rounded-sm overflow-hidden">
-                    <div 
-                        className={`h-full ${p.health && p.health < 20 ? 'bg-red-500' : 'bg-green-500'} transition-all duration-300`} 
-                        style={{ width: `${p.health || 0}%` }}
-                    />
-                    <span className="absolute inset-0 flex items-center justify-center text-[8px] font-mono text-white drop-shadow-md">
-                        {p.health || 0}
-                    </span>
+            {/* Bottom Row: Weapons & Utility */}
+            {(p.health || 0) > 0 && (
+                <div className="flex items-center mt-1.5 pt-1.5 border-t border-white/5 space-x-2">
+                    {/* Active Weapon */}
+                    {activeWeapon && (
+                        <div className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${
+                            activeWeapon.type === 'primary' ? 'bg-orange-500/20 text-orange-300' :
+                            activeWeapon.type === 'secondary' ? 'bg-gray-500/20 text-gray-300' :
+                            activeWeapon.type === 'melee' ? 'bg-red-500/20 text-red-300' :
+                            'bg-white/10 text-gray-400'
+                        }`} title={`Active: ${p.active_weapon_name}`}>
+                            {activeWeapon.label}
+                        </div>
+                    )}
+
+                    {/* Separator */}
+                    {activeWeapon && utilities.length > 0 && (
+                        <div className="w-px h-3 bg-white/10" />
+                    )}
+
+                    {/* Utility Icons */}
+                    <div className="flex items-center space-x-1">
+                        {utilities.map((util, idx) => {
+                            const info = getWeaponInfo(util);
+                            return (
+                                <span
+                                    key={idx}
+                                    className="text-[10px] opacity-80"
+                                    title={info.label}
+                                >
+                                    {info.icon}
+                                </span>
+                            );
+                        })}
+                    </div>
                 </div>
-                {/* Armor (Small bar or text?) Just text for now to save space, or small bar */}
-                <div className="flex justify-end items-center space-x-1 text-[9px] text-gray-400 font-mono">
-                    {p.armor && p.armor > 0 && <span>{p.armor} AP</span>}
-                </div>
-            </div>
+            )}
         </div>
-    );
+    );};
 
     return (
         <div className="fixed inset-0 bg-black/95 z-50 flex backdrop-blur-sm">
@@ -754,7 +927,41 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
                             </svg>
                         </button>
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-1">Round {round.round}</h2>
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-2xl font-bold text-white mb-1">Round {round.round}</h2>
+                        {rounds && onChangeRound && (
+                            <div className="flex items-center space-x-2">
+                                <button
+                                    onClick={goToPrevious}
+                                    disabled={!hasPrevious}
+                                    className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${
+                                        hasPrevious
+                                            ? 'bg-white/10 hover:bg-white/20 text-white'
+                                            : 'bg-white/5 text-gray-600 cursor-not-allowed'
+                                    }`}
+                                    title="Previous round"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </button>
+                                <button
+                                    onClick={goToNext}
+                                    disabled={!hasNext}
+                                    className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${
+                                        hasNext
+                                            ? 'bg-white/10 hover:bg-white/20 text-white'
+                                            : 'bg-white/5 text-gray-600 cursor-not-allowed'
+                                    }`}
+                                    title="Next round"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <p className="text-sm text-gray-400 font-mono uppercase tracking-wide">{mapName}</p>
                 </div>
 

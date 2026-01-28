@@ -139,11 +139,13 @@ function App() {
             </div>
 
             {selectedRound && selectedDemo && (
-                <RoundVisualizer 
+                <RoundVisualizer
                     filename={selectedDemo}
                     round={selectedRound}
+                    rounds={matchData?.matchStats?.rounds}
                     mapName={matchData?.header?.map_name}
                     onClose={() => setSelectedRound(null)}
+                    onChangeRound={handleViewRound}
                 />
             )}
 

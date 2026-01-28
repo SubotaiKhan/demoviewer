@@ -364,13 +364,15 @@ app.get('/api/demos/:filename/positions', (req, res) => {
         }
 
         const positions = parseTicks(filePath, [
-            "X", "Y", "Z", 
+            "X", "Y", "Z",
             "yaw",
             "team_num",
             "health",
             "armor",
             "has_helmet",
-            "has_defuser"
+            "has_defuser",
+            "active_weapon_name",
+            "inventory"
         ], ticks);
         console.log(`[Positions] Got ${positions ? positions.length : 'null'} position records`);
 
@@ -381,6 +383,10 @@ app.get('/api/demos/:filename/positions', (req, res) => {
         // Parse fire events for this range
         const fireEvents = parseEvents(filePath, ["weapon_fire"]);
         const relevantShots = fireEvents.filter(d => d.tick >= start && d.tick <= end);
+
+        // Parse player blind events (when players get flashed)
+        const blindEvents = parseEvents(filePath, ["player_blind"]);
+        const relevantBlinds = blindEvents.filter(d => d.tick >= start && d.tick <= end);
 
         // Parse grenade events
         const grenadeEventsRaw = parseEvents(filePath, [
@@ -489,6 +495,22 @@ app.get('/api/demos/:filename/positions', (req, res) => {
         // Group by tick for easier consumption
         const grouped = positions.reduce((acc, pos) => {
             if (!acc[pos.tick]) acc[pos.tick] = [];
+
+            // Calculate remaining flash duration for this player at this tick
+            // Look for blind events that affect this player and are still active
+            let flashDuration = 0;
+            for (const blind of relevantBlinds) {
+                if (blind.user_steamid === pos.steamid) {
+                    // blind_duration is in seconds, convert to ticks (64 ticks/sec)
+                    const blindEndTick = blind.tick + (blind.blind_duration || 0) * 64;
+                    if (pos.tick >= blind.tick && pos.tick < blindEndTick) {
+                        // Calculate remaining duration in seconds
+                        const remainingTicks = blindEndTick - pos.tick;
+                        flashDuration = Math.max(flashDuration, remainingTicks / 64);
+                    }
+                }
+            }
+
             acc[pos.tick].push({
                 steamid: pos.steamid,
                 name: pos.name,
@@ -500,7 +522,10 @@ app.get('/api/demos/:filename/positions', (req, res) => {
                 health: pos.health,
                 armor: pos.armor,
                 has_helmet: pos.has_helmet,
-                has_defuser: pos.has_defuser
+                has_defuser: pos.has_defuser,
+                flash_duration: flashDuration > 0 ? flashDuration : undefined,
+                active_weapon_name: pos.active_weapon_name,
+                inventory: pos.inventory
             });
             return acc;
         }, {});
