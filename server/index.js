@@ -156,7 +156,7 @@ function getDemoSummary(filePath) {
             duration: header.playback_time,
             score: matchStats.score,
             totalRounds: matchStats.totalRounds,
-            players: matchStats.players.map(p => ({ name: p.name, team: p.team })),
+            players: matchStats.players.map(p => ({ name: p.name, startingTeam: p.startingTeam })),
             teams: teams  // { team1: "...", team2: "..." } or null
         };
 
@@ -221,6 +221,7 @@ function calculateMatchStats(events) {
         steamid,
         name: name || 'Unknown',
         team: null,
+        startingTeam: null, // The first team assigned (represents their organization)
         kills: 0,
         deaths: 0,
         assists: 0,
@@ -248,6 +249,10 @@ function calculateMatchStats(events) {
                 const p = getPlayer(e.user_steamid, e.user_name);
                 // Only track T/CT teams (2/3)
                 if (e.team === 2 || e.team === 3) {
+                    // Track starting team (first assignment = their organization)
+                    if (p.startingTeam === null) {
+                        p.startingTeam = e.team;
+                    }
                     p.team = e.team;
                 }
             }
@@ -313,7 +318,7 @@ function calculateMatchStats(events) {
     });
 
     // Calculate derived stats (ADR)
-    const playerList = Object.values(players).filter(p => p.team === 2 || p.team === 3);
+    const playerList = Object.values(players).filter(p => p.startingTeam === 2 || p.startingTeam === 3);
     playerList.forEach(p => {
         p.adr = validRounds > 0 ? (p.damage / validRounds).toFixed(1) : 0;
     });

@@ -5,7 +5,7 @@ import { deleteDemo } from '../api';
 
 interface DemoPlayer {
     name: string;
-    team: number; // 2=T, 3=CT
+    startingTeam: number; // 2=T, 3=CT (the side they started on = their organization)
 }
 
 interface Demo {
@@ -190,8 +190,13 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
             <ul className="space-y-3">
                 {filteredDemos.map((demo) => {
                     const selected = selectedDemo === demo.name;
-                    const ctPlayers = demo.players?.filter(p => p.team === 3) ?? [];
-                    const tPlayers = demo.players?.filter(p => p.team === 2) ?? [];
+                    // Players grouped by starting team (their organization)
+                    // Team1 (first in "vs") typically started as CT (team 3)
+                    // Team2 (second in "vs") typically started as T (team 2)
+                    const team1Players = demo.players?.filter(p => p.startingTeam === 3) ?? [];
+                    const team2Players = demo.players?.filter(p => p.startingTeam === 2) ?? [];
+                    const team1Score = demo.score?.ct ?? 0;
+                    const team2Score = demo.score?.t ?? 0;
 
                     return (
                         <li
@@ -204,27 +209,14 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                                     : "bg-black/20 hover:bg-black/40 border-transparent"
                             )}
                         >
-                            {/* Top row: teams or map + date + delete */}
+                            {/* Top row: map + date + delete */}
                             <div className="flex justify-between items-start mb-2">
-                                <div className="min-w-0 flex-1 mr-2">
-                                    {demo.teams ? (
-                                        <div className={clsx(
-                                            "font-bold text-sm",
-                                            selected ? "text-cs2-accent" : "text-white"
-                                        )}>
-                                            <span className="truncate block">{demo.teams.team1}</span>
-                                            <span className="text-gray-500 text-xs">vs</span>
-                                            <span className="truncate block">{demo.teams.team2}</span>
-                                        </div>
-                                    ) : (
-                                        <span className={clsx(
-                                            "font-bold text-sm uppercase tracking-wide",
-                                            selected ? "text-cs2-accent" : "text-white"
-                                        )}>
-                                            {demo.map || demo.name}
-                                        </span>
-                                    )}
-                                </div>
+                                <span className={clsx(
+                                    "font-bold text-sm uppercase tracking-wide",
+                                    selected ? "text-cs2-accent" : "text-white"
+                                )}>
+                                    {demo.map || demo.name}
+                                </span>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <span className="text-[10px] text-gray-500">
                                         {formatDate(demo.created)}
@@ -241,15 +233,44 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                                 </div>
                             </div>
 
-                            {/* Map name (when teams are shown) */}
-                            {demo.teams && demo.map && (
-                                <div className="text-[10px] text-purple-400 uppercase tracking-wider mb-2">
-                                    {demo.map}
+                            {/* Team names with scores */}
+                            {demo.teams && demo.score && (
+                                <div className="mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className={clsx(
+                                            "font-bold text-lg font-mono w-6",
+                                            team1Score > team2Score ? "text-green-400" : team1Score < team2Score ? "text-red-400" : "text-gray-400"
+                                        )}>
+                                            {team1Score}
+                                        </span>
+                                        <span className="text-white text-sm truncate">{demo.teams.team1}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={clsx(
+                                            "font-bold text-lg font-mono w-6",
+                                            team2Score > team1Score ? "text-green-400" : team2Score < team1Score ? "text-red-400" : "text-gray-400"
+                                        )}>
+                                            {team2Score}
+                                        </span>
+                                        <span className="text-white text-sm truncate">{demo.teams.team2}</span>
+                                    </div>
                                 </div>
                             )}
 
-                            {/* Score */}
-                            {demo.score && (
+                            {/* Players grouped by team */}
+                            {demo.players && demo.players.length > 0 && (
+                                <div className="text-[11px] leading-relaxed space-y-1 mb-2">
+                                    <div className="text-gray-400 truncate">
+                                        {team1Players.map(p => p.name).join(', ') || '-'}
+                                    </div>
+                                    <div className="text-gray-500 truncate">
+                                        {team2Players.map(p => p.name).join(', ') || '-'}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Fallback: Score when no team names */}
+                            {!demo.teams && demo.score && (
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] uppercase font-bold text-cs2-ct tracking-wider">CT</span>
@@ -265,24 +286,6 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                                             {demo.totalRounds} rounds
                                         </span>
                                     )}
-                                </div>
-                            )}
-
-                            {/* Players */}
-                            {demo.players && demo.players.length > 0 && (
-                                <div className="text-[11px] leading-relaxed space-y-1 mb-2">
-                                    <div className="flex gap-1.5 flex-wrap">
-                                        <span className="text-cs2-ct font-semibold shrink-0">CT</span>
-                                        <span className="text-gray-400 truncate">
-                                            {ctPlayers.map(p => p.name).join(', ') || '-'}
-                                        </span>
-                                    </div>
-                                    <div className="flex gap-1.5 flex-wrap">
-                                        <span className="text-cs2-t font-semibold shrink-0">T</span>
-                                        <span className="text-gray-400 truncate">
-                                            {tPlayers.map(p => p.name).join(', ') || '-'}
-                                        </span>
-                                    </div>
                                 </div>
                             )}
 
