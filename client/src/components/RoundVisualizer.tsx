@@ -656,7 +656,31 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
         return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); };
     }, [isPlaying, ticks, mapImage, mapConfig]);
 
-    if (loading) return <div className="p-8 text-center text-cs2-accent animate-pulse">Loading high-fidelity data...</div>;
+    if (loading) return (
+        <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center backdrop-blur-sm">
+            <div className="flex flex-col items-center space-y-6">
+                {/* Spinner */}
+                <div className="relative">
+                    <div className="w-16 h-16 border-4 border-cs2-accent/20 rounded-full"></div>
+                    <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-cs2-accent rounded-full animate-spin"></div>
+                </div>
+
+                {/* Text */}
+                <div className="text-center">
+                    <h3 className="text-xl font-bold text-white mb-2">Loading Round {round.round}</h3>
+                    <p className="text-sm text-gray-400 animate-pulse">Parsing position data...</p>
+                </div>
+
+                {/* Close button */}
+                <button
+                    onClick={onClose}
+                    className="mt-4 px-4 py-2 text-sm text-gray-500 hover:text-white transition-colors"
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    );
 
     const progress = (playbackTimeRef.current / ((ticks.length - 1) * TICK_INTERVAL || 1)) * 100;
     const currentTickDisplay = ticks.length > 0 
@@ -723,16 +747,51 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
     const PlayerCard = ({ p }: { p: PlayerPos }) => {
         const isFlashed = p.flash_duration && p.flash_duration > 0;
 
-        // Parse inventory
+        // Parse inventory into categories
         const inventory = p.inventory || [];
-        const utilities = inventory.filter(w => {
-            const info = getWeaponInfo(w);
-            return info.type === 'utility';
-        });
-        const hasC4 = inventory.some(w => w.includes('c4'));
+        const activeWeaponName = p.active_weapon_name?.toLowerCase() || '';
 
-        // Get active weapon info
-        const activeWeapon = p.active_weapon_name ? getWeaponInfo(p.active_weapon_name) : null;
+        // Categorize inventory items
+        const primary = inventory.find(w => getWeaponInfo(w).type === 'primary');
+        const secondary = inventory.find(w => getWeaponInfo(w).type === 'secondary');
+        const melee = inventory.find(w => getWeaponInfo(w).type === 'melee');
+        const utilities = inventory.filter(w => getWeaponInfo(w).type === 'utility');
+        const bomb = inventory.find(w => getWeaponInfo(w).type === 'bomb');
+
+        // Check if item is active
+        const isActive = (item: string | undefined) => {
+            if (!item || !activeWeaponName) return false;
+            return item.toLowerCase().includes(activeWeaponName.replace('weapon_', '')) ||
+                   activeWeaponName.includes(item.toLowerCase().replace('weapon_', ''));
+        };
+
+        // Render a weapon/item pill
+        const ItemPill = ({ item, compact = false }: { item: string; compact?: boolean }) => {
+            const info = getWeaponInfo(item);
+            const active = isActive(item);
+
+            const baseClasses = compact
+                ? 'px-1 py-0.5 text-[9px]'
+                : 'px-1.5 py-0.5 text-[9px]';
+
+            const colorClasses = active
+                ? 'bg-yellow-500/40 text-yellow-200 ring-1 ring-yellow-400/50'
+                : info.type === 'primary' ? 'bg-white/10 text-gray-300' :
+                  info.type === 'secondary' ? 'bg-white/10 text-gray-400' :
+                  info.type === 'melee' ? 'bg-white/5 text-gray-500' :
+                  info.type === 'utility' ? 'bg-white/10 text-gray-300' :
+                  info.type === 'bomb' ? 'bg-red-500/20 text-red-300' :
+                  'bg-white/5 text-gray-500';
+
+            return (
+                <div
+                    className={`rounded font-mono ${baseClasses} ${colorClasses} transition-all`}
+                    title={`${info.label}${active ? ' (Active)' : ''}`}
+                >
+                    {compact ? info.icon : info.label}
+                </div>
+            );
+        };
 
         return (
         <div className={`p-2 rounded mb-1 text-xs border-l-2 border-transparent hover:bg-white/10 transition-colors ${isFlashed ? 'bg-white/20' : 'bg-white/5'}`} style={{ borderColor: p.team === 2 ? '#eab308' : '#60a5fa' }}>
@@ -747,7 +806,6 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
                         <div className="flex space-x-1 opacity-80">
                             {isFlashed && <span className="text-yellow-300 text-[10px] animate-pulse" title={`Flashed (${p.flash_duration?.toFixed(1)}s)`}>⚡</span>}
                             {p.has_defuser && <span className="text-blue-400 text-[10px]" title="Defuser">✂️</span>}
-                            {hasC4 && <span className="text-red-500 text-[10px]" title="Bomb">💣</span>}
                             {p.has_helmet && <span className="text-gray-300 text-[10px]" title="Helmet">🛡️</span>}
                             {!p.has_helmet && p.armor && p.armor > 0 && <span className="text-gray-500 text-[10px]" title="Armor (no helmet)">🛡️</span>}
                         </div>
@@ -773,41 +831,25 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
                 </div>
             </div>
 
-            {/* Bottom Row: Weapons & Utility */}
-            {(p.health || 0) > 0 && (
-                <div className="flex items-center mt-1.5 pt-1.5 border-t border-white/5 space-x-2">
-                    {/* Active Weapon */}
-                    {activeWeapon && (
-                        <div className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${
-                            activeWeapon.type === 'primary' ? 'bg-orange-500/20 text-orange-300' :
-                            activeWeapon.type === 'secondary' ? 'bg-gray-500/20 text-gray-300' :
-                            activeWeapon.type === 'melee' ? 'bg-red-500/20 text-red-300' :
-                            'bg-white/10 text-gray-400'
-                        }`} title={`Active: ${p.active_weapon_name}`}>
-                            {activeWeapon.label}
-                        </div>
-                    )}
+            {/* Bottom Row: Full Inventory */}
+            {(p.health || 0) > 0 && inventory.length > 0 && (
+                <div className="flex items-center flex-wrap gap-1 mt-1.5 pt-1.5 border-t border-white/5">
+                    {/* Primary Weapon */}
+                    {primary && <ItemPill item={primary} />}
 
-                    {/* Separator */}
-                    {activeWeapon && utilities.length > 0 && (
-                        <div className="w-px h-3 bg-white/10" />
-                    )}
+                    {/* Secondary Weapon */}
+                    {secondary && <ItemPill item={secondary} />}
 
-                    {/* Utility Icons */}
-                    <div className="flex items-center space-x-1">
-                        {utilities.map((util, idx) => {
-                            const info = getWeaponInfo(util);
-                            return (
-                                <span
-                                    key={idx}
-                                    className="text-[10px] opacity-80"
-                                    title={info.label}
-                                >
-                                    {info.icon}
-                                </span>
-                            );
-                        })}
-                    </div>
+                    {/* Melee */}
+                    {melee && <ItemPill item={melee} compact />}
+
+                    {/* Bomb */}
+                    {bomb && <ItemPill item={bomb} compact />}
+
+                    {/* Utilities */}
+                    {utilities.map((util, idx) => (
+                        <ItemPill key={idx} item={util} compact />
+                    ))}
                 </div>
             )}
         </div>
