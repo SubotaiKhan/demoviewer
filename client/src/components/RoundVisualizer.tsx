@@ -185,6 +185,15 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
                 const grenadeData = data.grenades || [];
                 const bombData = data.bombEvents || [];
 
+                // Debug: Check for flash data
+                const allPlayers = Object.values(posData).flat() as PlayerPos[];
+                const flashedPlayers = allPlayers.filter((p: PlayerPos) => p.flash_duration && p.flash_duration > 0);
+                console.log(`[RoundVisualizer] Loaded ${Object.keys(posData).length} ticks, ${allPlayers.length} position records`);
+                console.log(`[RoundVisualizer] Players with flash_duration > 0: ${flashedPlayers.length}`);
+                if (flashedPlayers.length > 0) {
+                    console.log(`[RoundVisualizer] Sample flashed player:`, flashedPlayers[0]);
+                }
+
                 const sortedTicks = Object.keys(posData).map(Number).sort((a, b) => a - b);
                 setTicks(sortedTicks);
                 setPositions(posData);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import clsx from 'clsx';
 import { DemoUpload } from './DemoUpload';
 import { deleteDemo } from '../api';
@@ -29,6 +29,45 @@ interface Props {
 
 export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRefresh, adminPassword }) => {
     const isAdmin = !!adminPassword;
+    const [filterText, setFilterText] = useState('');
+
+    // Filter demos based on search text (matches player names, map, filename)
+    const filteredDemos = useMemo(() => {
+        if (!filterText.trim()) return demos;
+
+        const searchLower = filterText.toLowerCase().trim();
+
+        return demos.filter(demo => {
+            // Match filename
+            if (demo.name.toLowerCase().includes(searchLower)) return true;
+
+            // Match map name
+            if (demo.map?.toLowerCase().includes(searchLower)) return true;
+
+            // Match any player name
+            if (demo.players?.some(p => p.name.toLowerCase().includes(searchLower))) return true;
+
+            return false;
+        });
+    }, [demos, filterText]);
+
+    // Get unique player names for autocomplete suggestions
+    const allPlayerNames = useMemo(() => {
+        const names = new Set<string>();
+        demos.forEach(demo => {
+            demo.players?.forEach(p => names.add(p.name));
+        });
+        return Array.from(names).sort();
+    }, [demos]);
+
+    // Get unique maps
+    const allMaps = useMemo(() => {
+        const maps = new Set<string>();
+        demos.forEach(demo => {
+            if (demo.map) maps.add(demo.map);
+        });
+        return Array.from(maps).sort();
+    }, [demos]);
 
     const handleDelete = async (e: React.MouseEvent, filename: string) => {
         e.stopPropagation();
@@ -56,8 +95,62 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
     return (
         <div className="bg-cs2-panel p-4 rounded-lg shadow-lg">
             <h2 className="text-xl font-bold mb-4 text-cs2-accent">Available Demos</h2>
+
+            {/* Filter input */}
+            <div className="mb-4">
+                <input
+                    type="text"
+                    value={filterText}
+                    onChange={(e) => setFilterText(e.target.value)}
+                    placeholder="Filter by player, map, or filename..."
+                    className="w-full bg-black/40 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cs2-accent"
+                    list="filter-suggestions"
+                />
+                <datalist id="filter-suggestions">
+                    {allPlayerNames.slice(0, 10).map(name => (
+                        <option key={name} value={name} />
+                    ))}
+                    {allMaps.map(map => (
+                        <option key={map} value={map} />
+                    ))}
+                </datalist>
+                {filterText && (
+                    <div className="flex justify-between items-center mt-1">
+                        <span className="text-xs text-gray-500">
+                            {filteredDemos.length} of {demos.length} demos
+                        </span>
+                        <button
+                            onClick={() => setFilterText('')}
+                            className="text-xs text-gray-500 hover:text-white"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                )}
+
+                {/* Quick map filters */}
+                {allMaps.length > 1 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                        {allMaps.map(map => (
+                            <button
+                                key={map}
+                                onClick={() => setFilterText(map)}
+                                className={clsx(
+                                    "px-2 py-0.5 text-[10px] rounded transition-colors",
+                                    filterText.toLowerCase() === map.toLowerCase()
+                                        ? "bg-cs2-accent text-black"
+                                        : "bg-black/30 text-gray-400 hover:bg-black/50 hover:text-white"
+                                )}
+                            >
+                                {map.replace('de_', '')}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             <ul className="space-y-3">
-                {demos.map((demo) => {
+                {filteredDemos.map((demo) => {
                     const selected = selectedDemo === demo.name;
                     const ctPlayers = demo.players?.filter(p => p.team === 3) ?? [];
                     const tPlayers = demo.players?.filter(p => p.team === 2) ?? [];
