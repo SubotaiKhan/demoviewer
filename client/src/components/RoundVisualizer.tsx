@@ -582,30 +582,46 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Flash indicator - white pulsing ring when player is blinded
+            // Flash indicator - bright pulsing effect when player is blinded
             if (isFlashed) {
                 // Intensity based on remaining duration (stronger flash = more intense)
                 const flashIntensity = Math.min(1, curFlashDuration / 2); // Full intensity for 2+ seconds
 
-                // Pulsing effect
-                const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 100);
-                const alpha = flashIntensity * (0.6 + 0.4 * pulse);
+                // Fast pulsing effect
+                const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 80);
+                const alpha = flashIntensity * (0.7 + 0.3 * pulse);
 
-                // Outer glow
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = `rgba(255, 255, 255, ${alpha})`;
+                // Large outer glow
+                ctx.shadowBlur = 35;
+                ctx.shadowColor = `rgba(255, 255, 100, ${alpha})`;
+
+                // Outer expanding ring
                 ctx.beginPath();
-                ctx.arc(cx, cy, 12, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.arc(cx, cy, 18 + pulse * 4, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 150, ${alpha * 0.6})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Middle ring
+                ctx.beginPath();
+                ctx.arc(cx, cy, 13, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 200, ${alpha})`;
                 ctx.lineWidth = 3;
                 ctx.stroke();
+
+                // Bright inner fill
+                ctx.beginPath();
+                ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+                ctx.fill();
+
                 ctx.shadowBlur = 0;
 
-                // Inner white overlay on player
-                ctx.beginPath();
-                ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
-                ctx.fill();
+                // "BLIND" text above player
+                ctx.fillStyle = `rgba(255, 255, 100, ${alpha})`;
+                ctx.font = 'bold 9px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('BLIND', cx, cy - 22);
             }
 
             ctx.fillStyle = 'white';
@@ -794,17 +810,27 @@ export const RoundVisualizer: React.FC<RoundVisualizerProps> = ({ filename, roun
         };
 
         return (
-        <div className={`p-2 rounded mb-1 text-xs border-l-2 border-transparent hover:bg-white/10 transition-colors ${isFlashed ? 'bg-white/20' : 'bg-white/5'}`} style={{ borderColor: p.team === 2 ? '#eab308' : '#60a5fa' }}>
+        <div className={`relative p-2 rounded mb-1 text-xs border-l-2 border-transparent hover:bg-white/10 transition-colors overflow-hidden ${isFlashed ? 'bg-yellow-500/30 ring-1 ring-yellow-400/50' : 'bg-white/5'}`} style={{ borderColor: p.team === 2 ? '#eab308' : '#60a5fa' }}>
+            {/* Flash overlay effect */}
+            {isFlashed && (
+                <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 via-white/30 to-yellow-400/20 animate-pulse pointer-events-none" />
+            )}
+
             {/* Top Row: Name, Status Icons, Health */}
-            <div className="flex items-center space-x-3">
+            <div className="relative flex items-center space-x-3">
                 {/* Name & Icons */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                     <div className="flex items-center space-x-2">
-                        <span className={`font-bold truncate max-w-[120px] ${p.health === 0 ? 'text-gray-500 line-through' : 'text-white'}`}>
+                        <span className={`font-bold truncate max-w-[100px] ${p.health === 0 ? 'text-gray-500 line-through' : 'text-white'}`}>
                             {p.name}
                         </span>
+                        {/* BLINDED badge */}
+                        {isFlashed && (
+                            <span className="px-1.5 py-0.5 bg-yellow-500 text-black text-[8px] font-black rounded animate-pulse">
+                                BLIND
+                            </span>
+                        )}
                         <div className="flex space-x-1 opacity-80">
-                            {isFlashed && <span className="text-yellow-300 text-[10px] animate-pulse" title={`Flashed (${p.flash_duration?.toFixed(1)}s)`}>⚡</span>}
                             {p.has_defuser && <span className="text-blue-400 text-[10px]" title="Defuser">✂️</span>}
                             {p.has_helmet && <span className="text-gray-300 text-[10px]" title="Helmet">🛡️</span>}
                             {!p.has_helmet && p.armor && p.armor > 0 && <span className="text-gray-500 text-[10px]" title="Armor (no helmet)">🛡️</span>}
