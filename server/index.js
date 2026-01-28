@@ -117,20 +117,43 @@ app.get('/api/maps/:mapName', (req, res) => {
     }
 });
 
-// Parse team names from server_name (e.g., "[33654] de_nuke: Team A vs. Team B")
-function parseTeamNames(serverName) {
-    if (!serverName) return null;
+// Get team clan names from tick data (the actual organization names)
+function getTeamClanNames(filePath) {
+    try {
+        // Parse tick data at an early tick to get team_clan_name for each player
+        // We need a tick after players have joined but before halftime swap
+        const tickData = parseTicks(filePath, [
+            "team_clan_name",
+            "team_num"
+        ], [5000, 10000, 15000]); // Try a few early ticks
 
-    // Try to match pattern: "... : Team1 vs. Team2" or "... : Team1 vs Team2"
-    const vsMatch = serverName.match(/:\s*(.+?)\s+vs\.?\s+(.+)$/i);
-    if (vsMatch) {
-        return {
-            team1: vsMatch[1].trim(),
-            team2: vsMatch[2].trim()
-        };
+        if (!tickData || tickData.length === 0) return null;
+
+        // Find the CT and T team clan names
+        let ctTeamName = null;
+        let tTeamName = null;
+
+        for (const player of tickData) {
+            if (player.team_clan_name && player.team_num) {
+                if (player.team_num === 3 && !ctTeamName) {
+                    ctTeamName = player.team_clan_name;
+                } else if (player.team_num === 2 && !tTeamName) {
+                    tTeamName = player.team_clan_name;
+                }
+            }
+            // Stop once we have both
+            if (ctTeamName && tTeamName) break;
+        }
+
+        if (ctTeamName && tTeamName) {
+            return { ctTeam: ctTeamName, tTeam: tTeamName };
+        }
+
+        return null;
+    } catch (error) {
+        console.error('Error getting team clan names:', error.message);
+        return null;
     }
-
-    return null;
 }
 
 // Cache parsed demo summaries to avoid re-parsing on every list request.
@@ -149,15 +172,18 @@ function getDemoSummary(filePath) {
         const events = parseEvents(filePath, ['round_end', 'player_team', 'round_freeze_end']);
         const matchStats = calculateMatchStats(events);
 
-        const teams = parseTeamNames(header.server_name);
+        const players = matchStats.players.map(p => ({ name: p.name, startingTeam: p.startingTeam }));
+
+        // Get team clan names directly from tick data
+        const teams = getTeamClanNames(filePath);
 
         const summary = {
             map: header.map_name,
             duration: header.playback_time,
             score: matchStats.score,
             totalRounds: matchStats.totalRounds,
-            players: matchStats.players.map(p => ({ name: p.name, startingTeam: p.startingTeam })),
-            teams: teams  // { team1: "...", team2: "..." } or null
+            players: players,
+            teams: teams  // { ctTeam: "...", tTeam: "..." } or null
         };
 
         demoSummaryCache.set(filePath, { size: fileStats.size, summary });

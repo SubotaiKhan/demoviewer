@@ -17,7 +17,7 @@ interface Demo {
     score?: { ct: number; t: number };
     totalRounds?: number;
     players?: DemoPlayer[];
-    teams?: { team1: string; team2: string } | null;
+    teams?: { ctTeam: string; tTeam: string } | null;
 }
 
 interface Props {
@@ -46,8 +46,8 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
             if (demo.map?.toLowerCase().includes(searchLower)) return true;
 
             // Match team names
-            if (demo.teams?.team1.toLowerCase().includes(searchLower)) return true;
-            if (demo.teams?.team2.toLowerCase().includes(searchLower)) return true;
+            if (demo.teams?.ctTeam.toLowerCase().includes(searchLower)) return true;
+            if (demo.teams?.tTeam.toLowerCase().includes(searchLower)) return true;
 
             // Match any player name
             if (demo.players?.some(p => p.name.toLowerCase().includes(searchLower))) return true;
@@ -60,8 +60,8 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
     const allTeams = useMemo(() => {
         const teams = new Set<string>();
         demos.forEach(demo => {
-            if (demo.teams?.team1) teams.add(demo.teams.team1);
-            if (demo.teams?.team2) teams.add(demo.teams.team2);
+            if (demo.teams?.ctTeam) teams.add(demo.teams.ctTeam);
+            if (demo.teams?.tTeam) teams.add(demo.teams.tTeam);
         });
         return Array.from(teams).sort();
     }, [demos]);
@@ -191,12 +191,11 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                 {filteredDemos.map((demo) => {
                     const selected = selectedDemo === demo.name;
                     // Players grouped by starting team (their organization)
-                    // Team1 (first in "vs") typically started as CT (team 3)
-                    // Team2 (second in "vs") typically started as T (team 2)
-                    const team1Players = demo.players?.filter(p => p.startingTeam === 3) ?? [];
-                    const team2Players = demo.players?.filter(p => p.startingTeam === 2) ?? [];
-                    const team1Score = demo.score?.ct ?? 0;
-                    const team2Score = demo.score?.t ?? 0;
+                    // ctTeam started as CT (startingTeam 3), tTeam started as T (startingTeam 2)
+                    const ctTeamPlayers = demo.players?.filter(p => p.startingTeam === 3) ?? [];
+                    const tTeamPlayers = demo.players?.filter(p => p.startingTeam === 2) ?? [];
+                    const ctTeamScore = demo.score?.ct ?? 0;
+                    const tTeamScore = demo.score?.t ?? 0;
 
                     return (
                         <li
@@ -239,20 +238,20 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                                     <div className="flex items-center gap-2">
                                         <span className={clsx(
                                             "font-bold text-lg font-mono w-6",
-                                            team1Score > team2Score ? "text-green-400" : team1Score < team2Score ? "text-red-400" : "text-gray-400"
+                                            ctTeamScore > tTeamScore ? "text-green-400" : ctTeamScore < tTeamScore ? "text-red-400" : "text-gray-400"
                                         )}>
-                                            {team1Score}
+                                            {ctTeamScore}
                                         </span>
-                                        <span className="text-white text-sm truncate">{demo.teams.team1}</span>
+                                        <span className="text-white text-sm truncate">{demo.teams.ctTeam}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={clsx(
                                             "font-bold text-lg font-mono w-6",
-                                            team2Score > team1Score ? "text-green-400" : team2Score < team1Score ? "text-red-400" : "text-gray-400"
+                                            tTeamScore > ctTeamScore ? "text-green-400" : tTeamScore < ctTeamScore ? "text-red-400" : "text-gray-400"
                                         )}>
-                                            {team2Score}
+                                            {tTeamScore}
                                         </span>
-                                        <span className="text-white text-sm truncate">{demo.teams.team2}</span>
+                                        <span className="text-white text-sm truncate">{demo.teams.tTeam}</span>
                                     </div>
                                 </div>
                             )}
@@ -261,10 +260,10 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                             {demo.players && demo.players.length > 0 && (
                                 <div className="text-[11px] leading-relaxed space-y-1 mb-2">
                                     <div className="text-gray-400 truncate">
-                                        {team1Players.map(p => p.name).join(', ') || '-'}
+                                        {ctTeamPlayers.map(p => p.name).join(', ') || '-'}
                                     </div>
                                     <div className="text-gray-500 truncate">
-                                        {team2Players.map(p => p.name).join(', ') || '-'}
+                                        {tTeamPlayers.map(p => p.name).join(', ') || '-'}
                                     </div>
                                 </div>
                             )}
