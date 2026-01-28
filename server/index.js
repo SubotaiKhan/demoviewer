@@ -117,6 +117,22 @@ app.get('/api/maps/:mapName', (req, res) => {
     }
 });
 
+// Parse team names from server_name (e.g., "[33654] de_nuke: Team A vs. Team B")
+function parseTeamNames(serverName) {
+    if (!serverName) return null;
+
+    // Try to match pattern: "... : Team1 vs. Team2" or "... : Team1 vs Team2"
+    const vsMatch = serverName.match(/:\s*(.+?)\s+vs\.?\s+(.+)$/i);
+    if (vsMatch) {
+        return {
+            team1: vsMatch[1].trim(),
+            team2: vsMatch[2].trim()
+        };
+    }
+
+    return null;
+}
+
 // Cache parsed demo summaries to avoid re-parsing on every list request.
 const demoSummaryCache = new Map();
 
@@ -133,12 +149,15 @@ function getDemoSummary(filePath) {
         const events = parseEvents(filePath, ['round_end', 'player_team', 'round_freeze_end']);
         const matchStats = calculateMatchStats(events);
 
+        const teams = parseTeamNames(header.server_name);
+
         const summary = {
             map: header.map_name,
             duration: header.playback_time,
             score: matchStats.score,
             totalRounds: matchStats.totalRounds,
-            players: matchStats.players.map(p => ({ name: p.name, team: p.team }))
+            players: matchStats.players.map(p => ({ name: p.name, team: p.team })),
+            teams: teams  // { team1: "...", team2: "..." } or null
         };
 
         demoSummaryCache.set(filePath, { size: fileStats.size, summary });

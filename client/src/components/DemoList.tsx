@@ -17,6 +17,7 @@ interface Demo {
     score?: { ct: number; t: number };
     totalRounds?: number;
     players?: DemoPlayer[];
+    teams?: { team1: string; team2: string } | null;
 }
 
 interface Props {
@@ -44,12 +45,26 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
             // Match map name
             if (demo.map?.toLowerCase().includes(searchLower)) return true;
 
+            // Match team names
+            if (demo.teams?.team1.toLowerCase().includes(searchLower)) return true;
+            if (demo.teams?.team2.toLowerCase().includes(searchLower)) return true;
+
             // Match any player name
             if (demo.players?.some(p => p.name.toLowerCase().includes(searchLower))) return true;
 
             return false;
         });
     }, [demos, filterText]);
+
+    // Get unique team names
+    const allTeams = useMemo(() => {
+        const teams = new Set<string>();
+        demos.forEach(demo => {
+            if (demo.teams?.team1) teams.add(demo.teams.team1);
+            if (demo.teams?.team2) teams.add(demo.teams.team2);
+        });
+        return Array.from(teams).sort();
+    }, [demos]);
 
     // Get unique player names for autocomplete suggestions
     const allPlayerNames = useMemo(() => {
@@ -107,11 +122,14 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                     list="filter-suggestions"
                 />
                 <datalist id="filter-suggestions">
-                    {allPlayerNames.slice(0, 10).map(name => (
-                        <option key={name} value={name} />
+                    {allTeams.map(team => (
+                        <option key={`team-${team}`} value={team} />
                     ))}
                     {allMaps.map(map => (
-                        <option key={map} value={map} />
+                        <option key={`map-${map}`} value={map} />
+                    ))}
+                    {allPlayerNames.slice(0, 10).map(name => (
+                        <option key={`player-${name}`} value={name} />
                     ))}
                 </datalist>
                 {filterText && (
@@ -128,6 +146,26 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                     </div>
                 )}
 
+                {/* Quick team filters */}
+                {allTeams.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                        {allTeams.map(team => (
+                            <button
+                                key={team}
+                                onClick={() => setFilterText(team)}
+                                className={clsx(
+                                    "px-2 py-0.5 text-[10px] rounded transition-colors",
+                                    filterText.toLowerCase() === team.toLowerCase()
+                                        ? "bg-cs2-accent text-black"
+                                        : "bg-black/30 text-gray-400 hover:bg-black/50 hover:text-white"
+                                )}
+                            >
+                                {team}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {/* Quick map filters */}
                 {allMaps.length > 1 && (
                     <div className="flex flex-wrap gap-1 mt-2">
@@ -138,8 +176,8 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                                 className={clsx(
                                     "px-2 py-0.5 text-[10px] rounded transition-colors",
                                     filterText.toLowerCase() === map.toLowerCase()
-                                        ? "bg-cs2-accent text-black"
-                                        : "bg-black/30 text-gray-400 hover:bg-black/50 hover:text-white"
+                                        ? "bg-purple-500 text-white"
+                                        : "bg-black/30 text-gray-500 hover:bg-black/50 hover:text-white"
                                 )}
                             >
                                 {map.replace('de_', '')}
@@ -166,14 +204,27 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                                     : "bg-black/20 hover:bg-black/40 border-transparent"
                             )}
                         >
-                            {/* Top row: map + date + delete */}
+                            {/* Top row: teams or map + date + delete */}
                             <div className="flex justify-between items-start mb-2">
-                                <span className={clsx(
-                                    "font-bold text-sm uppercase tracking-wide",
-                                    selected ? "text-cs2-accent" : "text-white"
-                                )}>
-                                    {demo.map || demo.name}
-                                </span>
+                                <div className="min-w-0 flex-1 mr-2">
+                                    {demo.teams ? (
+                                        <div className={clsx(
+                                            "font-bold text-sm",
+                                            selected ? "text-cs2-accent" : "text-white"
+                                        )}>
+                                            <span className="truncate block">{demo.teams.team1}</span>
+                                            <span className="text-gray-500 text-xs">vs</span>
+                                            <span className="truncate block">{demo.teams.team2}</span>
+                                        </div>
+                                    ) : (
+                                        <span className={clsx(
+                                            "font-bold text-sm uppercase tracking-wide",
+                                            selected ? "text-cs2-accent" : "text-white"
+                                        )}>
+                                            {demo.map || demo.name}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <span className="text-[10px] text-gray-500">
                                         {formatDate(demo.created)}
@@ -189,6 +240,13 @@ export const DemoList: React.FC<Props> = ({ demos, onSelect, selectedDemo, onRef
                                     )}
                                 </div>
                             </div>
+
+                            {/* Map name (when teams are shown) */}
+                            {demo.teams && demo.map && (
+                                <div className="text-[10px] text-purple-400 uppercase tracking-wider mb-2">
+                                    {demo.map}
+                                </div>
+                            )}
 
                             {/* Score */}
                             {demo.score && (
